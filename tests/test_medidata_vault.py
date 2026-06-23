@@ -1,33 +1,51 @@
 import pytest
-from medidata_vault import MedidataVault, QueryResult
+from medidata_vault import MedidataVault, Version, AuditLog
 
-def test_add_dataset():
+def test_create_version():
     vault = MedidataVault()
-    uuid = "123"
-    data = [{"name": "John", "age": "30"}, {"name": "Jane", "age": "25"}]
-    vault.add_dataset(uuid, data)
-    assert uuid in vault.datasets
+    creator = "test_creator"
+    data = {"key": "value"}
+    version = vault.create_version(creator, data)
+    assert version.id == "1"
+    assert version.creator == creator
+    assert version.timestamp is not None
+    assert version.data == data
 
-def test_query():
+def test_get_versions():
     vault = MedidataVault()
-    uuid = "123"
-    data = [{"name": "John", "age": "30"}, {"name": "Jane", "age": "25"}]
-    vault.add_dataset(uuid, data)
-    query = "SELECT * FROM dataset"
-    query_result = vault.query(uuid, query)
-    assert isinstance(query_result, QueryResult)
-    assert query_result.columns == ["name", "age"]
-    assert query_result.rows == [["John", "30"], ["Jane", "25"]]
+    creator = "test_creator"
+    data = {"key": "value"}
+    vault.create_version(creator, data)
+    versions = vault.get_versions()
+    assert len(versions) == 1
+    assert versions[0].id == "1"
+    assert versions[0].creator == creator
+    assert versions[0].timestamp is not None
+    assert versions[0].data == data
 
-def test_query_dataset_not_found():
+def test_revert_to_version():
     vault = MedidataVault()
-    uuid = "123"
-    query = "SELECT * FROM dataset"
+    creator = "test_creator"
+    data = {"key": "value"}
+    version = vault.create_version(creator, data)
+    new_version = vault.revert_to_version(version.id)
+    assert new_version.id == "2"
+    assert new_version.creator == "system"
+    assert new_version.timestamp is not None
+    assert new_version.data == data
+
+def test_get_audit_log():
+    vault = MedidataVault()
+    creator = "test_creator"
+    data = {"key": "value"}
+    vault.create_version(creator, data)
+    audit_log = vault.get_audit_log()
+    assert len(audit_log) == 1
+    assert audit_log[0].version_id == "1"
+    assert audit_log[0].action == "create"
+    assert audit_log[0].timestamp is not None
+
+def test_revert_to_non_existent_version():
+    vault = MedidataVault()
     with pytest.raises(ValueError):
-        vault.query(uuid, query)
-
-def test_to_json():
-    vault = MedidataVault()
-    query_result = QueryResult(["name", "age"], [["John", "30"], ["Jane", "25"]])
-    json_result = vault.to_json(query_result)
-    assert json_result == '{"columns": ["name", "age"], "rows": [["John", "30"], ["Jane", "25"]]}'
+        vault.revert_to_version("1")

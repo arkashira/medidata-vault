@@ -1,33 +1,45 @@
 import json
 from dataclasses import dataclass
-from typing import List, Dict
+from datetime import datetime
+from typing import Dict, List
 
 @dataclass
-class QueryResult:
-    columns: List[str]
-    rows: List[List[str]]
+class Version:
+    id: str
+    creator: str
+    timestamp: str
+    data: Dict
+
+@dataclass
+class AuditLog:
+    version_id: str
+    action: str
+    timestamp: str
 
 class MedidataVault:
     def __init__(self):
-        self.datasets = {}
+        self.versions = []
+        self.audit_log = []
 
-    def add_dataset(self, uuid: str, data: List[Dict[str, str]]):
-        self.datasets[uuid] = data
+    def create_version(self, creator: str, data: Dict) -> Version:
+        version_id = str(len(self.versions) + 1)
+        version = Version(version_id, creator, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), data)
+        self.versions.append(version)
+        self.audit_log.append(AuditLog(version_id, "create", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        return version
 
-    def query(self, uuid: str, query: str) -> QueryResult:
-        if uuid not in self.datasets:
-            raise ValueError("Dataset not found")
+    def get_versions(self) -> List[Version]:
+        return self.versions
 
-        data = self.datasets[uuid]
-        columns = list(data[0].keys())
-        rows = [[row[column] for column in columns] for row in data]
+    def revert_to_version(self, version_id: str) -> Version:
+        for version in self.versions:
+            if version.id == version_id:
+                new_version_id = str(len(self.versions) + 1)
+                new_version = Version(new_version_id, "system", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), version.data)
+                self.versions.append(new_version)
+                self.audit_log.append(AuditLog(new_version_id, "revert", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                return new_version
+        raise ValueError("Version not found")
 
-        # Simulate query execution
-        query_result = QueryResult(columns, rows)
-        return query_result
-
-    def to_json(self, query_result: QueryResult) -> str:
-        return json.dumps({
-            "columns": query_result.columns,
-            "rows": query_result.rows
-        })
+    def get_audit_log(self) -> List[AuditLog]:
+        return self.audit_log
