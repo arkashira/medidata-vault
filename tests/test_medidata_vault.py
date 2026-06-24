@@ -1,51 +1,37 @@
 import pytest
-from medidata_vault import MedidataVault, Version, AuditLog
+from datetime import datetime
+from medidata_vault import MedidataVault, ShareLink
 
-def test_create_version():
+def test_share_dataset():
     vault = MedidataVault()
-    creator = "test_creator"
-    data = {"key": "value"}
-    version = vault.create_version(creator, data)
-    assert version.id == "1"
-    assert version.creator == creator
-    assert version.timestamp is not None
-    assert version.data == data
+    vault.add_dataset("dataset1")
+    share_link = vault.share_dataset("dataset1", "viewer")
+    assert share_link.role == "viewer"
+    assert share_link.expires_at > datetime.now()
+    assert share_link.token in vault.share_links
 
-def test_get_versions():
+def test_revoke_share_link():
     vault = MedidataVault()
-    creator = "test_creator"
-    data = {"key": "value"}
-    vault.create_version(creator, data)
-    versions = vault.get_versions()
-    assert len(versions) == 1
-    assert versions[0].id == "1"
-    assert versions[0].creator == creator
-    assert versions[0].timestamp is not None
-    assert versions[0].data == data
+    vault.add_dataset("dataset1")
+    share_link = vault.share_dataset("dataset1", "viewer")
+    vault.revoke_share_link(share_link.token)
+    assert share_link.token not in vault.share_links
 
-def test_revert_to_version():
+def test_get_share_link():
     vault = MedidataVault()
-    creator = "test_creator"
-    data = {"key": "value"}
-    version = vault.create_version(creator, data)
-    new_version = vault.revert_to_version(version.id)
-    assert new_version.id == "2"
-    assert new_version.creator == "system"
-    assert new_version.timestamp is not None
-    assert new_version.data == data
+    vault.add_dataset("dataset1")
+    share_link = vault.share_dataset("dataset1", "viewer")
+    retrieved_share_link = vault.get_share_link(share_link.token)
+    assert retrieved_share_link == share_link
 
-def test_get_audit_log():
+def test_send_email():
     vault = MedidataVault()
-    creator = "test_creator"
-    data = {"key": "value"}
-    vault.create_version(creator, data)
-    audit_log = vault.get_audit_log()
-    assert len(audit_log) == 1
-    assert audit_log[0].version_id == "1"
-    assert audit_log[0].action == "create"
-    assert audit_log[0].timestamp is not None
+    vault.add_dataset("dataset1")
+    share_link = vault.share_dataset("dataset1", "viewer")
+    vault.send_email("test@example.com", share_link.token)
+    # No assertion, just checking it runs without error
 
-def test_revert_to_non_existent_version():
+def test_share_dataset_dataset_not_found():
     vault = MedidataVault()
     with pytest.raises(ValueError):
-        vault.revert_to_version("1")
+        vault.share_dataset("dataset1", "viewer")

@@ -1,45 +1,42 @@
 import json
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Dict, List
+from datetime import datetime, timedelta
+from typing import Optional
 
 @dataclass
-class Version:
-    id: str
-    creator: str
-    timestamp: str
-    data: Dict
-
-@dataclass
-class AuditLog:
-    version_id: str
-    action: str
-    timestamp: str
+class ShareLink:
+    role: str
+    expires_at: datetime
+    token: str
 
 class MedidataVault:
     def __init__(self):
-        self.versions = []
-        self.audit_log = []
+        self.datasets = {}
+        self.share_links = {}
 
-    def create_version(self, creator: str, data: Dict) -> Version:
-        version_id = str(len(self.versions) + 1)
-        version = Version(version_id, creator, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), data)
-        self.versions.append(version)
-        self.audit_log.append(AuditLog(version_id, "create", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-        return version
+    def share_dataset(self, dataset_id: str, role: str) -> ShareLink:
+        if dataset_id not in self.datasets:
+            raise ValueError("Dataset not found")
+        token = self.generate_token()
+        expires_at = datetime.now() + timedelta(days=30)
+        share_link = ShareLink(role, expires_at, token)
+        self.share_links[token] = share_link
+        return share_link
 
-    def get_versions(self) -> List[Version]:
-        return self.versions
+    def generate_token(self) -> str:
+        import secrets
+        return secrets.token_urlsafe(16)
 
-    def revert_to_version(self, version_id: str) -> Version:
-        for version in self.versions:
-            if version.id == version_id:
-                new_version_id = str(len(self.versions) + 1)
-                new_version = Version(new_version_id, "system", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), version.data)
-                self.versions.append(new_version)
-                self.audit_log.append(AuditLog(new_version_id, "revert", datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                return new_version
-        raise ValueError("Version not found")
+    def revoke_share_link(self, token: str) -> None:
+        if token in self.share_links:
+            del self.share_links[token]
 
-    def get_audit_log(self) -> List[AuditLog]:
-        return self.audit_log
+    def get_share_link(self, token: str) -> Optional[ShareLink]:
+        return self.share_links.get(token)
+
+    def send_email(self, email: str, token: str) -> None:
+        # Simulate sending an email
+        print(f"Sending email to {email} with token {token}")
+
+    def add_dataset(self, dataset_id: str) -> None:
+        self.datasets[dataset_id] = True
